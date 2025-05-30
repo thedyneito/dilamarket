@@ -91,7 +91,7 @@ function App() {
               <input
                 type="hidden"
                 name="redirect-url"
-                value="http://localhost:3000/gracias"
+                value="https://dilamarket.vercel.app/gracias"
               />
               <button type="submit">Pagar con PSE (Wompi)</button>
             </form>
