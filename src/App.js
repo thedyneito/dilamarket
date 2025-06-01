@@ -1,42 +1,65 @@
-import React, { useEffect, useState } from 'react';
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const mysql = require('mysql2');
+const { URL } = require('url');
 
-function App() {
-  const [productos, setProductos] = useState([]);
-  const [error, setError] = useState('');
+const app = express();
+const PORT = process.env.PORT || 8080;
 
-  useEffect(() => {
-    // Usamos variable de entorno en lugar de URL fija
-    const apiUrl = process.env.REACT_APP_API_URL;
+// ✅ CORS corregido para permitir Vercel y localhost
+app.use(cors({
+  origin: ['https://dilamarket-ftgv.vercel.app', 'http://localhost:3000'],
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 
-    fetch(`${apiUrl}/productos`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Error al obtener productos');
-        }
-        return response.json();
-      })
-      .then(data => setProductos(data))
-      .catch(err => {
-        console.error('❌ Error:', err.message);
-        setError('No se pudieron cargar los productos.');
-      });
-  }, []);
+app.use(express.json());
 
-  return (
-    <div style={{ padding: '20px', fontFamily: 'Arial' }}>
-      <h1>🛒 Productos disponibles</h1>
-
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-
-      <ul>
-        {productos.map(producto => (
-          <li key={producto.id}>
-            <strong>{producto.nombre}</strong> - ${producto.precio} - Stock: {producto.stock}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+// ✅ Verificación de DATABASE_URL
+if (!process.env.DATABASE_URL) {
+  console.error('❌ ERROR: DATABASE_URL no está definida');
+  process.exit(1);
 }
 
-export default App;
+let dbUrl;
+try {
+  dbUrl = new URL(process.env.DATABASE_URL);
+} catch (error) {
+  console.error('❌ URL inválida:', error.message);
+  process.exit(1);
+}
+
+// ✅ Conexión a MySQL con pool
+const pool = mysql.createPool({
+  host: dbUrl.hostname,
+  port: dbUrl.port || 3306,
+  user: dbUrl.username,
+  password: dbUrl.password,
+  database: dbUrl.pathname.replace('/', ''),
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+// ✅ Ruta de prueba
+app.get('/', (req, res) => {
+  res.send('✅ Backend Dilamarket funcionando');
+});
+
+// ✅ Ruta de productos
+app.get('/productos', (req, res) => {
+  pool.query('SELECT * FROM productos', (err, results) => {
+    if (err) {
+      console.error('❌ Error al obtener productos:', err);
+      return res.status(500).send('Error al obtener productos');
+    }
+    res.json(results);
+  });
+});
+
+// ✅ Iniciar servidor
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Backend corriendo en http://localhost:${PORT}`);
+});
